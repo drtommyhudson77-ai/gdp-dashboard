@@ -1,0 +1,23 @@
+from openai import OpenAI
+import base64
+
+# Initialize client
+client = OpenAI(api_key="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")  # or Azure equivalent  # ⚠️ replace with env variable in real use)
+
+# Generate an image
+response = client.images.generate(
+    model="gpt-image-1",
+    prompt="A clean professional diagram showing NHS digitise on transfer process: paper records collected, scanned, uploaded, and returned digitally",
+    size="1024x1024"
+)
+
+# Get image (base64 format)
+image_base64 = response.data[0].b64_json
+
+# Save to file
+image_bytes = base64.b64decode(image_base64)
+
+with open("nhs_diagram.png", "wb") as f:
+    f.write(image_bytes)
+
+print("✅ Image saved as nhs_diagram.png")
