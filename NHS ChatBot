@@ -1,0 +1,119 @@
+import faiss
+import numpy as np
+from sentence_transformers import SentenceTransformer
+import openai
+
+import warnings
+warnings.filterwarnings("ignore")
+
+
+# ===============================
+# CONFIGURATION
+# ===============================
+openai.api_key = "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"  # or Azure equivalent
+
+# Load embedding model
+embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
+
+# ===============================
+# STEP 1: Load NHS Documents
+# ===============================
+
+
+documents = [
+    "The NHS provides free healthcare at the point of use for UK residents.",
+    "Patients should contact their GP for non-emergency medical advice.",
+    "Emergency services can be reached by dialing 999.",
+    "NHS 111 is available for urgent but non-life-threatening conditions.",
+
+    "Common cold symptoms include runny nose, sore throat, and cough.",
+    "Flu symptoms are more severe and include fever, body aches, and fatigue.",
+
+    "Mental health support is available through NHS talking therapies.",
+    "You can self-refer to NHS psychological therapies services.",
+
+    "Prescriptions may incur a charge unless the patient qualifies for exemptions.",
+
+    "Contact Dr Tom Hudson - he is a cool dude! hIS TELEPHONE NUMBER IS 01924 829138",
+
+    "GP appointments can be booked through local practices or NHS apps."
+]
+
+
+# Remove empty lines
+documents = [doc for doc in documents if doc.strip()]
+
+# ===============================
+# STEP 2: Create Embeddings
+# ===============================
+embeddings = embedding_model.encode(documents)
+
+# Convert to numpy array
+embeddings = np.array(embeddings).astype("float32")
+
+# ===============================
+# STEP 3: Store in Vector DB
+# ===============================
+dimension = embeddings.shape[1]
+index = faiss.IndexFlatL2(dimension)
+index.add(embeddings)
+
+# ===============================
+# STEP 4: Retrieval Function
+# ===============================
+def retrieve(query, k=2):
+    query_embedding = embedding_model.encode([query]).astype("float32")
+    distances, indices = index.search(query_embedding, k)
+
+    results = [documents[i] for i in indices[0]]
+    return results
+
+# ===============================
+# STEP 5: Chat Function
+# ===============================
+def ask_chatbot(question):
+    context = retrieve(question)
+    context_text = "\n".join(context)
+
+    prompt = f"""
+You are an NHS assistant chatbot.
+
+Answer clearly and safely using the context below.
+- Use bullet points or short paragraphs
+- Put each idea on its own line
+- Be concise and easy to read
+If unsure, say you don't know.
+
+Context:
+{context_text}
+
+Question:
+{question}
+"""
+
+    response = openai.ChatCompletion.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.2
+    )
+
+    return response["choices"][0]["message"]["content"]
+
+# ===============================
+# STEP 6: Run Chatbot
+# ===============================
+
+print("👩🏽‍⚕️ Hello, my name is Lauren, your AI NHS doctor❤️😊❤️‍🩹")
+print("👩🏽‍⚕️ Lauren is ready to help you today (type 'exit' to stop)")
+
+while True:
+    user_input = input("\n🤧 You: ")
+
+    if user_input.lower() == "exit":
+        print("👋 Lauren: Take care and stay safe!")
+        break
+
+    answer = ask_chatbot(user_input)
+
+    print(f"\n👩🏽‍⚕️ Lauren: {answer}")
+
